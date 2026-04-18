@@ -252,36 +252,35 @@ export function generateQuestion(
 }
 
 export function generateSummary(exchanges: Exchange[], decision: string): string {
+  const answered = exchanges.filter((e) => e.answer);
   const lines: string[] = [
-    "---",
+    "REFLECTION SUMMARY",
     "",
-    "**Reflection Summary**",
+    `Decision: "${decision}"`,
+    `Rounds: ${answered.length}`,
     "",
-    `You were considering: "${decision}"`,
-    "",
-    "Through our conversation, you explored:",
   ];
 
-  for (const exchange of exchanges) {
-    if (exchange.answer) {
-      lines.push(`• ${exchange.question}`);
-      lines.push(`  → ${exchange.answer.substring(0, 100)}${exchange.answer.length > 100 ? "..." : ""}`);
-    }
+  for (let i = 0; i < answered.length; i++) {
+    const e = answered[i];
+    lines.push(`Q${i + 1}: ${e!.question}`);
+    lines.push(`A: ${e!.answer!.substring(0, 120)}${e!.answer!.length > 120 ? "..." : ""}`);
+    lines.push("");
   }
 
   const contradictions = detectContradictions(exchanges);
   if (contradictions.length > 0) {
+    lines.push("TENSIONS TO CONSIDER");
     lines.push("");
-    lines.push("**Tensions to consider:**");
-    for (const contradiction of contradictions) {
-      lines.push(`• ${contradiction}`);
+    for (const c of contradictions) {
+      lines.push(`- ${c}`);
     }
+    lines.push("");
   }
 
-  lines.push("");
   lines.push("The decision is yours. But now you're making it with your eyes open.");
   lines.push("");
-  lines.push("Reply /new to explore another decision.");
+  lines.push("Text /new to explore another decision.");
 
   return lines.join("\n");
 }
