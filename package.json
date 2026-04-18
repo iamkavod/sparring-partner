@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@photon-ai/imessage-kit": "^3.0.0-rc.2"
+    "@photon-ai/imessage-kit": "^3.0.0-rc.2",
+    "groq-sdk": "^1.1.2"
   },
   "devDependencies": {
     "@types/bun": "latest",

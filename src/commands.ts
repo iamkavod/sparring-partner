@@ -1,5 +1,6 @@
 import { HistoryEntry } from "./store.js";
 import { SessionManager } from "./session.js";
+import { generateAISummary } from "./ai.js";
 
 export type CommandResult = {
   content: string;
@@ -12,14 +13,14 @@ export class CommandHandler {
     this.sessionManager = sessionManager;
   }
 
-  handle(command: string, participant: string): CommandResult {
+  async handle(command: string, participant: string): Promise<CommandResult> {
     const normalizedCommand = command.toLowerCase().trim();
 
     switch (normalizedCommand) {
       case "/new":
         return this.handleNew(participant);
       case "/done":
-        return this.handleDone(participant);
+        return await this.handleDone(participant);
       case "/history":
         return this.handleHistory(participant);
       case "/help":
@@ -46,7 +47,7 @@ export class CommandHandler {
     };
   }
 
-  private handleDone(participant: string): CommandResult {
+  private async handleDone(participant: string): Promise<CommandResult> {
     const session = this.sessionManager.getActiveSession(participant);
 
     if (!session) {
@@ -57,9 +58,10 @@ export class CommandHandler {
     }
 
     const exchanges = this.sessionManager.completeSession(session.id);
+    const summary = await generateAISummary(session.decision, session.category, exchanges);
 
     return {
-      content: this.generateEarlySummary(exchanges, session.decision),
+      content: summary,
     };
   }
 
@@ -80,7 +82,7 @@ export class CommandHandler {
   private handleHelp(): CommandResult {
     return {
       content: [
-        "**Sparring Partner Commands**",
+        "Sparring Partner Commands",
         "",
         "/new - Start a fresh session (abandons current)",
         "/done - End session early and get summary",
@@ -92,40 +94,8 @@ export class CommandHandler {
     };
   }
 
-  private generateEarlySummary(
-    exchanges: { question: string; answer: string | null }[],
-    decision: string
-  ): string {
-    const lines: string[] = [
-      "---",
-      "",
-      "**Early Wrap-up**",
-      "",
-      `You were considering: "${decision}"`,
-      "",
-    ];
-
-    if (exchanges.length === 0) {
-      lines.push("We didn't explore this one yet.");
-    } else {
-      lines.push("You explored:");
-      for (const exchange of exchanges) {
-        if (exchange.answer) {
-          lines.push(`\u2022 ${exchange.question}`);
-        }
-      }
-    }
-
-    lines.push("");
-    lines.push("The decision is yours. But now you're making it with your eyes open.");
-    lines.push("");
-    lines.push("Reply /new to explore another decision.");
-
-    return lines.join("\n");
-  }
-
   private formatHistory(history: HistoryEntry[]): string {
-    const lines: string[] = ["**Your Decision History**", ""];
+    const lines: string[] = ["Your Decision History", ""];
 
     for (let i = 0; i < history.length; i++) {
       const entry = history[i];
@@ -135,8 +105,8 @@ export class CommandHandler {
         day: "numeric",
       });
       const status = entry.completedAt ? "\u2713" : "\u25CB";
-      const shortDecision = entry.decision.length > 50 
-        ? `${entry.decision.substring(0, 50)}...` 
+      const shortDecision = entry.decision.length > 50
+        ? `${entry.decision.substring(0, 50)}...`
         : entry.decision;
       lines.push(`${i + 1}. ${status} [${entry.category}] ${shortDecision} (${date})`);
     }

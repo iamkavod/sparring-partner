@@ -3,9 +3,9 @@ import { SQLiteSessionManager } from "./session.js";
 import { CommandHandler } from "./commands.js";
 import {
   detectCategory,
-  generateQuestion,
-  generateSummary,
-  getAcknowledgment,
+  generateAIQuestion,
+  generateAISummary,
+  generateAIAcknowledgment,
   MAX_QUESTIONS,
 } from "./questioner.js";
 
@@ -22,7 +22,7 @@ async function handleMessage(message: Message): Promise<void> {
   if (!participant || !text) return;
 
   if (text.startsWith("/")) {
-    const result = commandHandler.handle(text, participant);
+    const result = await commandHandler.handle(text, participant);
     await sdk.send(participant, result.content);
     return;
   }
@@ -32,9 +32,8 @@ async function handleMessage(message: Message): Promise<void> {
   if (!activeSession) {
     const category = detectCategory(text);
     const session = sessionManager.startSession(participant, text, category);
-    const acknowledgment = getAcknowledgment(text, category);
-    const firstQuestion = acknowledgment.split("\n").pop() ?? acknowledgment;
-    sessionManager.recordQuestion(session.id, firstQuestion, 1);
+    const acknowledgment = await generateAIAcknowledgment(text, category);
+    sessionManager.recordQuestion(session.id, acknowledgment, 1);
     await sdk.send(participant, acknowledgment);
     return;
   }
@@ -48,13 +47,13 @@ async function handleMessage(message: Message): Promise<void> {
   const nextRound = exchanges.length + 1;
 
   if (nextRound > MAX_QUESTIONS) {
-    const summary = generateSummary(exchanges, activeSession.decision);
+    const summary = await generateAISummary(activeSession.decision, activeSession.category, exchanges);
     sessionManager.completeSession(activeSession.id);
     await sdk.send(participant, summary);
     return;
   }
 
-  const nextQuestion = generateQuestion(activeSession.category, nextRound, exchanges);
+  const nextQuestion = await generateAIQuestion(activeSession.decision, activeSession.category, exchanges, nextRound, MAX_QUESTIONS);
   sessionManager.recordQuestion(activeSession.id, nextQuestion, nextRound);
   await sdk.send(participant, nextQuestion);
 }
